@@ -4,8 +4,11 @@ import { Button } from '@/components/ui';
 import { Input } from '@/components/ui/Input';
 import Link from 'next/link';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { userRegister } from '@/services/user/auth';
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -13,11 +16,30 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    console.log(formData);
+    setError('');
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    setLoading(true);
+    try {
+      await userRegister({
+        name: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        phone: formData.phone || undefined,
+      });
+      router.push('/login');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,8 +129,9 @@ export default function RegisterPage() {
               </label>
             </div>
 
+            {error && <span className="text-2xs text-ui-error">{error}</span>}
             <Button type="submit" fullWidth>
-              Create Account
+              {loading ? 'Creating…' : 'Create Account'}
             </Button>
           </form>
 

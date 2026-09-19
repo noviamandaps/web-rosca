@@ -3,10 +3,38 @@
 import { Button } from '@/components/ui';
 import { Input } from '@/components/ui/Input';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { setUserToken, userLogin } from '@/services/user/auth';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [role, setRole] = useState<'user' | 'admin' | 'affiliate'>('user');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (role !== 'user') return;
+    setError('');
+    setLoading(true);
+    try {
+      const res = await userLogin({ email, password });
+      const token = res.token ?? res.accessToken;
+      if (token) {
+        setUserToken(token);
+        router.push('/');
+      } else {
+        setError('Login succeeded but no token returned');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
@@ -30,7 +58,7 @@ export default function LoginPage() {
               User
             </button>
             <button
-              onClick={() => setRole('admin')}
+              onClick={() => router.push('/admin/login')}
               className={`py-3 text-xs font-medium uppercase tracking-wider border-r border-brand-border transition-colors ${
                 role === 'admin'
                   ? 'bg-brand-black text-brand-white'
@@ -65,13 +93,15 @@ export default function LoginPage() {
             {role === 'affiliate' && 'Manage your affiliate dashboard.'}
           </p>
 
-          <form className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               label="Email"
               type="email"
               placeholder="Enter your email"
               required
               name="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
             <div>
               <div className="flex justify-between items-center mb-1">
@@ -88,11 +118,14 @@ export default function LoginPage() {
                 placeholder="Enter your password"
                 required
                 className="w-full border border-brand-border px-4 py-3 text-sm text-brand-dark placeholder:text-brand-gray focus:border-brand-black focus:outline-none transition-colors"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
 
+            {error && <span className="text-2xs text-ui-error">{error}</span>}
             <Button type="submit" fullWidth>
-              Login
+              {loading ? 'Logging in…' : 'Login'}
             </Button>
           </form>
 
@@ -123,8 +156,13 @@ export default function LoginPage() {
               </span>
             </div>
             <div className="space-y-3">
-              <button className="w-full border border-brand-border py-3 text-sm font-medium uppercase tracking-wider hover:border-brand-black hover:bg-brand-black hover:text-brand-white transition-all">
-                Google
+              {/* ponytail: Google OAuth menunggu flow idToken — endpoint POST /auth/google sudah ada di service */}
+              <button
+                type="button"
+                disabled
+                className="w-full border border-brand-border py-3 text-sm font-medium uppercase tracking-wider text-brand-gray cursor-not-allowed"
+              >
+                Google (soon)
               </button>
             </div>
           </>

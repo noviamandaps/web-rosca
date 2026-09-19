@@ -395,6 +395,142 @@ export interface SaleStatistics {
   upcomingSales?: number;
 }
 
+// --- User-side (storefront) ---
+export interface ProductImageRow {
+  id?: string;
+  url?: string;
+  imageUrl?: string;
+  isPrimary?: boolean;
+  description?: string;
+}
+
+export interface PublicVariant {
+  id: string;
+  sku?: string;
+  colorName?: string | null;
+  colorHex?: string | null;
+  sizeLabel?: string | null;
+  volumeMl?: number | null;
+  additionalPrice?: number;
+  price?: number;
+  salePrice?: number | null;
+  stock?: number;
+  isActive?: boolean;
+  images?: ProductImageRow[];
+}
+
+// ponytail: shape produk public belum di readme — toleran, mapping di FE
+export interface PublicProduct {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  price?: number;
+  basePrice?: number;
+  originalPrice?: number | null;
+  salePrice?: number | null;
+  images?: ProductImageRow[];
+  variants?: PublicVariant[];
+  categories?: { id: string; name: string }[];
+  category?: string;
+  stock?: number;
+  sold?: number;
+  isNewArrival?: boolean;
+  isBestSelling?: boolean;
+  isSale?: boolean;
+}
+
+export interface CartItemRow {
+  id: string;
+  productId?: string;
+  variantId?: string;
+  productName?: string;
+  variantLabel?: string;
+  unitPrice?: number;
+  price?: number;
+  quantity: number;
+  subtotal?: number;
+  image?: string | null;
+  imageUrl?: string | null;
+  slug?: string;
+  isEngrave?: boolean;
+  engraveText?: string | null;
+}
+
+export type CartResult = {
+  items?: CartItemRow[];
+  cartItems?: CartItemRow[];
+  summary?: { subtotal?: number; itemCount?: number };
+};
+
+export interface Address {
+  id?: string;
+  label?: string;
+  recipientName: string;
+  phone: string;
+  province: string;
+  provinceId?: string;
+  city: string;
+  cityId?: string;
+  district?: string;
+  districtId?: string;
+  subdistrict?: string;
+  subdistrictId?: string;
+  postalCode: string;
+  fullAddress: string;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
+  komerceDestinationId?: string;
+  isDefault?: boolean;
+}
+
+export interface ReviewRow {
+  id: string;
+  name?: string;
+  rating: number;
+  comment: string;
+  date?: string;
+  createdAt?: string;
+  images?: { id: string; imageUrl: string }[];
+  reply?: string | null;
+}
+
+export interface ReviewInput {
+  productId: string;
+  orderItemId: string;
+  rating: number;
+  comment: string;
+}
+
+export interface NotificationRow {
+  id: string;
+  title: string;
+  message: string;
+  isRead?: boolean;
+  read?: boolean;
+  createdAt?: string;
+}
+
+export interface PaymentResult {
+  id?: string;
+  paymentId?: string;
+  status?: string;
+  paymentMethod?: string;
+  paymentChannel?: string;
+  paymentCode?: string | null;
+  qrCodeUrl?: string | null;
+  amount?: number;
+  expiredAt?: string | null;
+  providerPaymentId?: string | null;
+}
+
+export interface BankRow {
+  id: string;
+  name: string;
+  code?: string;
+  imageUrl?: string;
+}
+
 export interface CmsSlider {
   id: string;
   title: string;
