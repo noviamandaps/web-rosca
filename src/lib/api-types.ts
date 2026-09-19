@@ -400,7 +400,10 @@ export interface ProductImageRow {
   id?: string;
   url?: string;
   imageUrl?: string;
+  altText?: string;
   isPrimary?: boolean;
+  isLifestyle?: boolean;
+  sortOrder?: number;
   description?: string;
 }
 
@@ -411,33 +414,42 @@ export interface PublicVariant {
   colorHex?: string | null;
   sizeLabel?: string | null;
   volumeMl?: number | null;
-  additionalPrice?: number;
-  price?: number;
-  salePrice?: number | null;
+  additionalPrice?: number | string;
+  price?: number | string;
+  salePrice?: number | string | null;
   stock?: number;
+  stockQuantity?: number;
   isActive?: boolean;
+  imageUrl?: string | null;
   images?: ProductImageRow[];
 }
 
-// ponytail: shape produk public belum di readme — toleran, mapping di FE
+// ponytail: mapping ke shape nyata staging (audit readme-be-audit-user.md)
 export interface PublicProduct {
   id: string;
   name: string;
   slug: string;
+  sku?: string;
   description?: string;
-  price?: number;
-  basePrice?: number;
-  originalPrice?: number | null;
-  salePrice?: number | null;
+  shortDescription?: string | null;
+  basePrice?: number | string;
+  price?: number | string;
+  originalPrice?: number | string | null;
+  salePrice?: number | string | null;
+  isSale?: boolean;
+  isFeatured?: boolean;
+  isNewArrival?: boolean;
+  isBestSelling?: boolean;
   images?: ProductImageRow[];
+  homepageImage?: ProductImageRow | null;
+  catalogImage?: ProductImageRow | null;
+  bestSellerImage?: ProductImageRow | null;
   variants?: PublicVariant[];
+  productCategories?: { id?: string; name?: string; category?: { name?: string } }[];
   categories?: { id: string; name: string }[];
   category?: string;
   stock?: number;
   sold?: number;
-  isNewArrival?: boolean;
-  isBestSelling?: boolean;
-  isSale?: boolean;
 }
 
 export interface CartItemRow {
@@ -535,12 +547,30 @@ export interface CmsSlider {
   id: string;
   title: string;
   subtitle?: string;
-  imageUrl?: string;
+  description?: string;
   image?: string;
+  imageUrl?: string;
+  mobileImageUrl?: string | null;
+  buttonText?: string;
   ctaText?: string;
+  linkUrl?: string;
   ctaLink?: string;
+  textColor?: string | null;
+  videoUrl?: string | null;
   isActive?: boolean;
   sortOrder?: number;
+}
+
+// shape nyata GET /cms/sliders → { sliders, pagination } (audit staging)
+export interface CmsSlidersResult {
+  sliders: CmsSlider[];
+  pagination?: Pagination;
+}
+
+// shape nyata GET /products → { products, pagination }
+export interface ProductsListResult {
+  products: PublicProduct[];
+  pagination?: Pagination;
 }
 
 export interface LoginResult {

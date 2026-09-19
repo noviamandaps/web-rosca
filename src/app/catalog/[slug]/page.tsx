@@ -50,9 +50,13 @@ export default function ProductDetailPage() {
   const ui = toUiProduct(product);
   const variants = product.variants ?? [];
   const variant = variants[variantIdx] ?? variants[0];
-  const images = (product.images ?? []).map((i) => i.url ?? i.imageUrl ?? '').filter(Boolean);
+  const images = (product.images ?? []).map((i) => i.imageUrl ?? i.url ?? '').filter(Boolean);
   const gallery = images.length ? images : ui.images;
-  const price = product.salePrice ?? variant?.price ?? ui.price;
+  // ponytail: variant price = basePrice + additionalPrice, sale menang kalau ada
+  const base = Number(product.basePrice ?? product.price ?? 0);
+  const additional = Number(variant?.additionalPrice ?? 0);
+  const sale = Number(product.salePrice ?? variant?.salePrice ?? 0);
+  const price = sale || base + additional;
 
   const relatedProducts = (related ?? []).filter((r) => r.id !== product.id).slice(0, 4).map(toUiProduct);
 
@@ -172,7 +176,7 @@ export default function ProductDetailPage() {
               </button>
 
               <p className="text-xs text-brand-gray text-center">
-                {msg ?? ((variant?.stock ?? ui.stock) > 10 ? 'In Stock' : (variant?.stock ?? ui.stock ?? 0) > 0 ? `Only ${variant?.stock ?? ui.stock} left` : 'Out of Stock')}
+                {msg ?? ((variant?.stockQuantity ?? variant?.stock ?? ui.stock) > 10 ? 'In Stock' : (variant?.stockQuantity ?? variant?.stock ?? ui.stock ?? 0) > 0 ? `Only ${variant?.stockQuantity ?? variant?.stock ?? ui.stock} left` : 'Out of Stock')}
               </p>
             </div>
           </div>

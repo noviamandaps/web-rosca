@@ -1,5 +1,5 @@
 import { apiFetch } from '../api-client';
-import type { Paginated, PublicProduct, ReviewRow, ReviewInput } from '@/lib/api-types';
+import type { Pagination, PublicProduct, ReviewRow, ReviewInput } from '@/lib/api-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export type ProductFilters = {
@@ -17,28 +17,38 @@ export const qk = {
   productReviews: (slug: string) => ['products', 'reviews', slug] as const,
 };
 
-// ponytail: response /products bisa data[].{data} / array — unwrap adaptif
-function unwrapList<T>(res: T[] | Paginated<T> | { data: T[] }): T[] {
+// ponytail: list endpoint balik { products, pagination } atau { data } / array — unwrap adaptif (audit staging)
+function unwrapList<T>(res: T[] | { data?: T[]; products?: T[]; reviews?: T[] }): T[] {
   if (Array.isArray(res)) return res;
-  if ('data' in res) return res.data;
-  return (res as unknown as { data?: T[] }).data ?? [];
+  return res.products ?? res.reviews ?? res.data ?? [];
 }
 
+export type ProductsListResult = { products: PublicProduct[]; pagination?: Pagination };
+
 async function list<T>(endpoint: string, f?: Record<string, unknown>) {
-  return unwrapList(await apiFetch<T[] | Paginated<T> | { data: T[] }>(endpoint, { params: f }));
+  return unwrapList(await apiFetch<T[] | { data?: T[]; products?: T[]; reviews?: T[] }>(endpoint, { params: f }));
 }
 
 export function getProducts(f: ProductFilters = {}) {
   return list<PublicProduct>('/products', f);
 }
 export function getProduct(slug: string) {
-  return apiFetch<PublicProduct>(`/products/${slug}`);
+  // detail balik { product } (audit staging)
+  return apiFetch<{ product: PublicProduct } | PublicProduct>(`/products/${slug}`).then((r) =>
+    (r as { product?: PublicProduct }).product ?? (r as PublicProduct)
+  );
 }
 export function getNewArrivals() {
   return list<PublicProduct>('/products/new-arrivals');
 }
 export function getBestSelling() {
   return list<PublicProduct>('/products/best-selling');
+}
+export function getFeatured() {
+  return list<PublicProduct>('/products/featured');
+}
+export function getSale() {
+  return list<PublicProduct>('/products/sale');
 }
 export function getProductReviews(slug: string) {
   return list<ReviewRow>(`/products/${slug}/reviews`);
