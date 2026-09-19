@@ -1,16 +1,7 @@
 // In-memory data store for development
 // In production, this should be replaced with a real database
 
-import { Slider, Review } from '@/lib/data';
-
-export interface SliderInput {
-  image: string;
-  title: string;
-  subtitle?: string;
-  ctaText: string;
-  ctaLink: string;
-  active?: boolean;
-}
+import { Review } from '@/lib/data';
 
 export interface ReviewInput {
   name: string;
@@ -20,42 +11,7 @@ export interface ReviewInput {
   status?: 'Pending' | 'Approved' | 'Rejected';
 }
 
-// Initial data - Rosca Sliders
-const initialSliders: Slider[] = [
-  {
-    id: '1',
-    image: '/products/rosca-1.webp',
-    title: 'NEW ARRIVAL',
-    subtitle: 'Rosca OzzyJug Collection - Tahan Panas/Dingin Hingga 12 Jam',
-    ctaText: 'SHOP NOW',
-    ctaLink: '/catalog',
-  },
-  {
-    id: '2',
-    image: '/products/rosca-4.webp',
-    title: 'COSMIC EDITION',
-    subtitle: 'Edisi Spesial dengan Desain Gradient yang Unik',
-    ctaText: 'EXPLORE',
-    ctaLink: '/catalog',
-  },
-  {
-    id: '3',
-    image: '/products/rosca-19.webp',
-    title: 'JUMBOJUG 1.5L',
-    subtitle: 'Kapasitas Besar untuk Hidrasi Seharian',
-    ctaText: 'SHOP NOW',
-    ctaLink: '/catalog',
-  },
-  {
-    id: '4',
-    image: '/products/rosca-25.webp',
-    title: 'SPECIAL BUNDLE',
-    subtitle: 'Rosca x The Bath Box - Buy 2 Get 1',
-    ctaText: 'GET DEAL',
-    ctaLink: '/catalog',
-  },
-];
-
+// ponytail: internal reviews kept until backend exposes a public reviews endpoint (fase 3)
 const initialReviews: Review[] = [
   {
     id: '1',
@@ -113,60 +69,13 @@ const initialReviews: Review[] = [
   },
 ];
 
-// Data Store Class
 class DataStore {
-  private sliders: Map<string, Slider>;
   private reviews: Map<string, Review>;
 
   constructor() {
-    this.sliders = new Map(initialSliders.map(s => [s.id, s]));
     this.reviews = new Map(initialReviews.map(r => [r.id, r]));
   }
 
-  // ==================== SLIDERS ====================
-  getAllSliders(): Slider[] {
-    return Array.from(this.sliders.values());
-  }
-
-  getSliderById(id: string): Slider | undefined {
-    return this.sliders.get(id);
-  }
-
-  createSlider(data: SliderInput): Slider {
-    const id = Date.now().toString();
-    const slider: Slider = {
-      id,
-      image: data.image,
-      title: data.title,
-      subtitle: data.subtitle,
-      ctaText: data.ctaText,
-      ctaLink: data.ctaLink,
-    };
-    this.sliders.set(id, slider);
-    return slider;
-  }
-
-  updateSlider(id: string, data: Partial<SliderInput>): Slider | null {
-    const slider = this.sliders.get(id);
-    if (!slider) return null;
-
-    const updated: Slider = {
-      ...slider,
-      ...(data.image !== undefined && { image: data.image }),
-      ...(data.title !== undefined && { title: data.title }),
-      ...(data.subtitle !== undefined && { subtitle: data.subtitle }),
-      ...(data.ctaText !== undefined && { ctaText: data.ctaText }),
-      ...(data.ctaLink !== undefined && { ctaLink: data.ctaLink }),
-    };
-    this.sliders.set(id, updated);
-    return updated;
-  }
-
-  deleteSlider(id: string): boolean {
-    return this.sliders.delete(id);
-  }
-
-  // ==================== REVIEWS ====================
   getAllReviews(): Review[] {
     return Array.from(this.reviews.values());
   }
@@ -219,5 +128,4 @@ class DataStore {
   }
 }
 
-// Export singleton instance
 export const dataStore = new DataStore();

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "ROSCA - Modern Minimalist E-Commerce",
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <PageLayout>{children}</PageLayout>
+        <Providers>
+          <PageLayout>{children}</PageLayout>
+        </Providers>
       </body>
     </html>
   );
