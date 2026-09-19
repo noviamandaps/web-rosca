@@ -81,7 +81,16 @@ export async function apiFetch<T>(endpoint: string, options: ApiOptions = {}): P
 
   if (res.status === 204) return null as T;
   const text = await res.text();
-  return (text ? JSON.parse(text) : null) as T;
+  if (!text) return null as T;
+  const json = JSON.parse(text);
+  // ponytail: normalisasi envelope — kebanyakan endpoint { status, data }; Sale pakai flat + key success
+  if (
+    (json.status === true || json.success === true) &&
+    typeof json === 'object' &&
+    'data' in json
+  )
+    return json.data as T;
+  return json as T;
 }
 
 export function apiDownload(

@@ -1,14 +1,40 @@
 import { apiFetch } from '../api-client';
-import type { Paginated, SaleEntry } from '@/lib/api-types';
+import type {
+  SaleProduct,
+  SaleStatistics,
+  SaleVariantsListResult,
+  SaleVariantsOverviewResult,
+} from '@/lib/api-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-export type SaleFilters = {
-  status?: string;
+export type SaleStatus = 'active' | 'expired' | 'upcoming' | 'all';
+
+export type SaleListFilters = {
+  status?: SaleStatus;
+  page?: number;
+  limit?: number; // max 100, def 20
   search?: string;
+};
+
+export type SaleVariantFilters = {
   productId?: string;
   isSale?: boolean;
+  status?: SaleStatus;
   page?: number;
   limit?: number;
+};
+
+export type SaleOverviewFilters = {
+  startDate?: string;
+  endDate?: string;
+  compareStartDate?: string;
+  compareEndDate?: string;
+  productId?: string;
+  isSale?: boolean;
+  status?: SaleStatus;
+  search?: string;
+  page?: number;
+  limit?: number; // max 200, def 50
 };
 
 export type SaleInput = {
@@ -17,32 +43,43 @@ export type SaleInput = {
   saleStartDate?: string;
   saleEndDate?: string;
   salePurchaseLimit?: number;
+  salePurchaseLimitPerUser?: number;
 };
 
 export const qk = {
-  sales: (f?: { status?: string; search?: string }) => ['sales', f ?? {}] as const,
+  sales: (f: SaleListFilters) => ['sales', 'list', f] as const,
   saleStats: ['sales', 'statistics'] as const,
-  saleVariants: (f: SaleFilters) => ['sales', 'variants', f] as const,
+  saleVariants: (f: SaleVariantFilters) => ['sales', 'variants', f] as const,
+  saleOverview: (f: SaleOverviewFilters) => ['sales', 'overview', f] as const,
 };
 
-export function getSales(f?: { status?: string; search?: string }) {
-  return apiFetch<Paginated<SaleEntry>>('/admin/sales', { params: f });
-}
-export function getSalesStatistics() {
-  return apiFetch<Record<string, number>>('/admin/sales/statistics');
-}
-export function getSaleVariants(f: SaleFilters = {}) {
-  return apiFetch<Paginated<SaleEntry>>('/admin/sales/variants', { params: f });
+export function getSales(f: SaleListFilters = {}) {
+  return apiFetch<SaleVariantsListResult & { products?: SaleProduct[] }>('/admin/sales', { params: f });
 }
 
-export function useSales(f?: { status?: string; search?: string }) {
+export function getSalesStatistics() {
+  return apiFetch<SaleStatistics>('/admin/sales/statistics');
+}
+
+export function getSaleVariants(f: SaleVariantFilters = {}) {
+  return apiFetch<SaleVariantsListResult>('/admin/sales/variants', { params: f });
+}
+
+export function getSaleVariantsOverview(f: SaleOverviewFilters = {}) {
+  return apiFetch<SaleVariantsOverviewResult>('/admin/sales/variants/overview', { params: f });
+}
+
+export function useSales(f: SaleListFilters = {}) {
   return useQuery({ queryKey: qk.sales(f), queryFn: () => getSales(f) });
 }
 export function useSalesStatistics() {
   return useQuery({ queryKey: qk.saleStats, queryFn: getSalesStatistics });
 }
-export function useSaleVariants(f: SaleFilters) {
+export function useSaleVariants(f: SaleVariantFilters) {
   return useQuery({ queryKey: qk.saleVariants(f), queryFn: () => getSaleVariants(f) });
+}
+export function useSaleVariantsOverview(f: SaleOverviewFilters = {}) {
+  return useQuery({ queryKey: qk.saleOverview(f), queryFn: () => getSaleVariantsOverview(f) });
 }
 
 export function useSetVariantSale() {
@@ -50,6 +87,15 @@ export function useSetVariantSale() {
   return useMutation({
     mutationFn: ({ variantId, ...input }: SaleInput & { variantId: string }) =>
       apiFetch<null>(`/admin/sales/variants/${variantId}`, { method: 'POST', body: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sales'] }),
+  });
+}
+
+export function useSetVariantsSaleBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (entries: (SaleInput & { variantId: string })[]) =>
+      apiFetch<null>('/admin/sales/variants/batch', { method: 'POST', body: { entries } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sales'] }),
   });
 }
@@ -87,11 +133,11 @@ export function useBulkSale() {
     mutationFn: (payload: {
       productIds?: string[];
       categoryIds?: string[];
-      discountPercent: number;
+      discountPercent?: number;
+      salePrice?: number;
       saleStartDate: string;
       saleEndDate: string;
       setSale?: boolean;
-      salePrice?: number;
     }) => apiFetch<null>('/admin/sales/bulk', { method: 'POST', body: payload }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sales'] }),
   });

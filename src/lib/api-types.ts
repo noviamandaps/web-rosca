@@ -1,3 +1,11 @@
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+// ponytail: Paginated<T> masih dipakai modul yang shape-nya belum terverifikasi (products, returns, warehouse)
 export interface Paginated<T> {
   data: T[];
   total: number;
@@ -7,12 +15,16 @@ export interface Paginated<T> {
 
 export type OrderStatus =
   | 'PENDING'
+  | 'AWAITING_PAYMENT'
   | 'PAID'
   | 'PROCESSING'
   | 'SHIPPED'
+  | 'READY_TO_SHIP'
   | 'DELIVERED'
   | 'COMPLETED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'REFUNDED'
+  | 'RETURNED';
 
 export type AdminRole = 'SUPER_ADMIN' | string;
 
@@ -107,34 +119,57 @@ export type OrderPaymentMethod = 'COD' | 'TRANSFER';
 
 export interface OrderItem {
   id: string;
-  productId?: string;
   productName?: string;
-  variantId?: string;
-  variantLabel?: string;
+  variantInfo?: string;
+  unitPrice?: number;
   quantity: number;
-  price: number;
+  subtotal?: number;
   isEngrave?: boolean;
   engraveText?: string;
-  warehouseId?: string;
-  warehouseName?: string;
+  imageUrl?: string;
+}
+
+export interface OrderUser {
+  id: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  membershipLevel?: string;
+}
+
+export interface OrderPayment {
+  id: string;
+  status: string;
+  paymentMethod?: string;
+  paymentChannel?: string;
+  amount?: number;
+  expiredAt?: string;
+  paidAt?: string;
 }
 
 export interface Order {
   id: string;
   orderNumber?: string;
   status: OrderStatus;
-  customerName?: string;
-  customerEmail?: string;
-  items?: OrderItem[];
-  total?: number;
+  statusLabel?: string;
+  user?: OrderUser;
+  warehouse?: { id: string; name: string } | null;
   subtotal?: number;
   shippingCost?: number;
-  courierCode?: string;
-  courierService?: string;
-  trackingNumber?: string;
-  paymentMethod?: OrderPaymentMethod;
+  discountAmount?: number;
+  serviceFee?: number;
+  totalAmount?: number;
+  courierCode?: string | null;
+  courierService?: string | null;
+  trackingNumber?: string | null;
+  notes?: string | null;
   createdAt?: string;
-  notes?: string;
+  updatedAt?: string;
+  items?: OrderItem[];
+  itemCount?: number;
+  payment?: OrderPayment | null;
+  customerName?: string;
+  total?: number;
 }
 
 export interface Courier {
@@ -143,25 +178,49 @@ export interface Courier {
 }
 
 export interface DashboardSummary {
-  totalRevenue?: number;
-  totalOrders?: number;
-  totalCustomers?: number;
-  totalProducts?: number;
-  pendingOrders?: number;
-  [key: string]: unknown;
+  revenue: { total: number; thisMonth: number; growthRate: number; avgOrderValue: number };
+  netSales: { total: number; thisMonth: number; serviceFees: number; refunds: number };
+  gmv: { total: number; thisMonth: number };
+  unitSold: { total: number; thisMonth: number };
+  orders: {
+    total: number;
+    thisMonth: number;
+    today: number;
+    pending: number;
+    paid: number;
+    processing: number;
+    shipped: number;
+    delivered: number;
+    cancelled: number;
+    failed: number;
+    conversionRate: number;
+  };
+  users: {
+    total: number;
+    thisMonth: number;
+    today: number;
+    active: number;
+    totalBuyers: number;
+    repeatCustomers: number;
+    buyerConversionRate: number;
+  };
+  products: { total: number; lowStock: number; lowStockThreshold: number; outOfStock: number };
+  reviews: { total: number; thisMonth: number; avgRating: number };
+  abandonedCarts: { total: number; thisMonth: number; rate: number };
 }
 
 export interface RevenuePoint {
-  date?: string;
-  period?: string;
+  month?: string;
+  year?: number;
   revenue?: number;
-  orders?: number;
+  orderCount?: number;
+  avgOrderValue?: number;
 }
 
 export interface UsersStat {
-  date?: string;
-  newUsers?: number;
-  totalUsers?: number;
+  month?: number;
+  year?: number;
+  count?: number;
 }
 
 export interface TrafficPoint {
@@ -171,21 +230,169 @@ export interface TrafficPoint {
   uniqueVisitors?: number;
 }
 
-export interface TopProduct {
-  productId?: string;
-  name?: string;
-  sold?: number;
-  revenue?: number;
-  stock?: number;
+export interface TopProductItem {
+  variantId?: string | null;
+  variantLabel?: string | null;
+  variantSku?: string | null;
+  variantPrice?: number;
+  totalSold: number;
+  revenue: number;
+  totalStock?: number;
+  lastSoldAt?: string | null;
+  product?: {
+    productId: string;
+    productName: string;
+    productSlug?: string;
+    productImage?: string | null;
+    basePrice?: number;
+    salePrice?: number | null;
+  };
 }
 
-export interface UserRow {
+export interface TopProductsResult {
+  period?: string;
+  startDate?: string;
+  endDate?: string;
+  generatedAt?: string;
+  products: TopProductItem[];
+}
+
+export interface CustomerRow {
   id: string;
   name?: string;
   email: string;
-  phone?: string;
+  phone?: string | null;
+  city?: string | null;
   isActive?: boolean;
+  membershipLevel?: string;
+  points?: number;
   createdAt?: string;
+  totalOrders?: number;
+  totalSpending?: number;
+  averageOrderValue?: number;
+  lastOrderDate?: string | null;
+}
+
+export interface AbandonedCart {
+  cartId: string;
+  userId?: string | null;
+  user?: { id: string; name?: string; email?: string; phone?: string | null } | null;
+  itemCount: number;
+  totalAmount: number;
+  daysAbandoned: number;
+  lastActivity?: string;
+}
+
+export interface AbandonedCartsResult {
+  summary: { totalAbandonedCarts: number; totalAbandonedAmount: number; avgDaysAbandoned: number };
+  carts: AbandonedCart[];
+  pagination: Pagination;
+}
+
+export type UserRow = {
+  id: string;
+  email: string;
+  name?: string;
+  phone?: string | null;
+  gender?: string | null;
+  city?: string | null;
+  role?: string;
+  isVerified?: boolean;
+  isActive?: boolean;
+  membershipLevel?: string;
+  // ponytail: Decimal bisa string di JSON (readme §5.4) — Number() di FE
+  totalSpending?: number | string;
+  points?: number | string;
+  createdAt?: string;
+};
+
+export type UsersListResult = { users: UserRow[]; pagination: Pagination };
+
+export type OrdersListResult = { orders: Order[]; pagination: Pagination };
+
+// --- Sales (flat, key success, pagination FLAT) ---
+export type SaleProductStatus = 'not_started' | 'active' | 'ended' | 'no_sale_set';
+
+export interface SaleProduct {
+  id: string;
+  name: string;
+  slug?: string;
+  sku?: string;
+  basePrice?: number;
+  salePrice?: number | null;
+  saleStartDate?: string | null;
+  saleEndDate?: string | null;
+  isSale?: boolean;
+  saleStatus?: SaleProductStatus;
+  daysRemaining?: number | null;
+  discountPercent?: number | null;
+  images?: { id: string; imageUrl: string; isPrimary?: boolean }[];
+}
+
+export type SalesListResult = {
+  products: SaleProduct[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
+export interface SaleVariant {
+  id: string;
+  productId?: string;
+  productName?: string;
+  sku?: string;
+  colorName?: string | null;
+  sizeLabel?: string | null;
+  volumeMl?: number | null;
+  additionalPrice?: number;
+  basePrice?: number;
+  salePrice?: number | null;
+  discountPercent?: number | null;
+  isSale?: boolean;
+  saleStartDate?: string | null;
+  saleEndDate?: string | null;
+  saleStatus?: SaleProductStatus;
+  daysRemaining?: number | null;
+  salePurchaseLimit?: number | null;
+  salePurchaseCount?: number;
+  salePurchaseLimitPerUser?: number | null;
+  saleQuotaRemaining?: number | null;
+}
+
+export type SaleVariantsListResult = {
+  variants: SaleVariant[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
+export interface SaleVariantOverviewRow {
+  id: string;
+  productId?: string;
+  product?: { id: string; name: string; slug?: string; sku?: string; basePrice?: number; imageUrl?: string | null };
+  variant?: { sku?: string; colorName?: string | null; sizeLabel?: string | null; volumeMl?: number | null; imageUrl?: string | null };
+  pricing?: { basePrice?: number; additionalPrice?: number; effectivePrice?: number; salePrice?: number | null; discountPercent?: number | null };
+  sale?: { isSale?: boolean; saleStatus?: SaleProductStatus; daysRemaining?: number | null; saleStartDate?: string | null; saleEndDate?: string | null; salePurchaseLimit?: number | null; salePurchaseCount?: number; salePurchaseLimitPerUser?: number | null; saleQuotaRemaining?: number | null };
+  stock?: { stockQuantity?: number; reservedStock?: number; availableStock?: number };
+  metrics?: { soldQuantity?: number; revenue?: number; orderCount?: number; returnCount?: number; returnRate?: number };
+  isActive?: boolean;
+}
+
+export type SaleVariantsOverviewResult = {
+  variants: SaleVariantOverviewRow[];
+  summary?: { totalVariants?: number; onSaleCount?: number; totalSold?: number; totalRevenue?: number; totalReturns?: number; averageReturnRate?: number };
+  pagination: Pagination;
+  period?: { startDate?: string; endDate?: string };
+  comparison?: { period?: { startDate?: string; endDate?: string }; summary?: { totalSold?: number; totalRevenue?: number; totalReturns?: number } } | null;
+};
+
+export interface SaleStatistics {
+  totalSaleProducts?: number;
+  activeSales?: number;
+  expiredSales?: number;
+  upcomingSales?: number;
 }
 
 export interface CmsSlider {
@@ -229,21 +436,9 @@ export interface ReturnItem {
   createdAt?: string;
 }
 
-export interface SaleEntry {
-  id: string;
-  productId?: string;
-  productName?: string;
-  variantId?: string;
+export interface SaleEntry extends SaleVariant {
   variantLabel?: string;
-  sku?: string;
   price?: number;
-  salePrice?: number;
-  discountPercent?: number;
-  saleStartDate?: string;
-  saleEndDate?: string;
-  isSale?: boolean;
-  status?: string;
-  sold?: number;
   revenue?: number;
   stock?: number;
 }
