@@ -5,7 +5,7 @@ import { apiFetch } from '@/services/api-client';
 import { useBestSelling, useNewArrivals } from '@/services/user/products';
 import { toUiProduct } from '@/lib/public-map';
 import { HeroBanner, ProductSection, ReviewSection } from '@/components/sections';
-import type { CmsSlider, Paginated } from '@/lib/api-types';
+import type { CmsSlidersResult } from '@/lib/api-types';
 import type { Slider, Review, Product } from '@/lib/data';
 import { getBestProducts, getNewProducts } from '@/lib/data';
 
@@ -16,7 +16,7 @@ const dummyBest = getBestProducts() as Product[];
 export default function HomePage() {
   const sliders = useQuery({
     queryKey: ['cms', 'sliders'],
-    queryFn: () => apiFetch<Paginated<CmsSlider>>('/cms/sliders', { params: { limit: 10 } }),
+    queryFn: () => apiFetch<CmsSlidersResult>('/cms/sliders'),
   });
   const newArrivals = useNewArrivals();
   const bestSelling = useBestSelling();
@@ -25,15 +25,15 @@ export default function HomePage() {
     queryFn: () => fetch('/api/reviews?status=Approved').then((r) => (r.ok ? r.json() : [])) as Promise<Review[]>,
   });
 
-  const slides: Slider[] = (sliders.data?.data ?? [])
+  const slides: Slider[] = (sliders.data?.sliders ?? [])
     .filter((s) => s.isActive !== false)
     .map((s) => ({
       id: s.id,
-      image: s.image ?? s.imageUrl ?? '',
+      image: s.imageUrl ?? s.image ?? '',
       title: s.title,
       subtitle: s.subtitle,
-      ctaText: s.ctaText ?? 'Shop Now',
-      ctaLink: s.ctaLink ?? '/catalog',
+      ctaText: s.buttonText ?? s.ctaText ?? 'Shop Now',
+      ctaLink: s.linkUrl ?? s.ctaLink ?? '/catalog',
     }));
 
   const newProducts = (newArrivals.data ?? []).map(toUiProduct);

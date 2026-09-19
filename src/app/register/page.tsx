@@ -9,30 +9,44 @@ import { userRegister } from '@/services/user/auth';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState({
-    fullName: '',
+  const [f, setF] = useState({
+    name: '',
     email: '',
     phone: '',
+    birthday: '',
+    city: '',
+    gender: '',
     password: '',
     confirmPassword: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setF((p) => ({ ...p, [k]: e.target.value }));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (formData.password !== formData.confirmPassword) {
+    if (f.password !== f.confirmPassword) {
       setError('Passwords do not match');
+      return;
+    }
+    if (f.gender !== 'MALE' && f.gender !== 'FEMALE') {
+      setError('Select gender');
       return;
     }
     setLoading(true);
     try {
       await userRegister({
-        name: formData.fullName,
-        email: formData.email,
-        password: formData.password,
-        phone: formData.phone || undefined,
+        name: f.name,
+        email: f.email,
+        password: f.password,
+        confirmPassword: f.confirmPassword,
+        phone: f.phone.replace(/\D/g, ''),
+        birthday: new Date(f.birthday).toISOString(),
+        city: f.city,
+        gender: f.gender as 'MALE' | 'FEMALE',
       });
       router.push('/login');
     } catch (err) {
@@ -42,22 +56,13 @@ export default function RegisterPage() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <Link href="/" className="flex justify-center mb-8">
           <h1 className="text-3xl font-bold uppercase tracking-wider">ROSCA</h1>
         </Link>
 
-        {/* Register Form */}
         <div className="border border-brand-border p-8">
           <h2 className="text-2xl font-bold uppercase tracking-wider mb-2">Create Account</h2>
           <p className="text-sm text-brand-gray mb-6">
@@ -65,69 +70,29 @@ export default function RegisterPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Full Name"
-              placeholder="Enter your full name"
-              required
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-            />
-            <Input
-              label="Email"
-              type="email"
-              placeholder="Enter your email"
-              required
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-            />
-            <Input
-              label="Phone"
-              type="tel"
-              placeholder="Enter your phone number"
-              required
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-            />
-            <Input
-              label="Password"
-              type="password"
-              placeholder="Create a password"
-              required
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-            />
-            <Input
-              label="Confirm Password"
-              type="password"
-              placeholder="Confirm your password"
-              required
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-            />
-
-            <div className="flex items-start gap-2">
-              <input
-                type="checkbox"
-                id="terms"
-                required
-                className="mt-1 w-4 h-4"
-              />
-              <label htmlFor="terms" className="text-xs text-brand-gray">
-                I agree to the{' '}
-                <Link href="/terms" className="text-brand-black hover:underline underline-offset-4">
-                  Terms & Conditions
-                </Link>{' '}
-                and{' '}
-                <Link href="/privacy" className="text-brand-black hover:underline underline-offset-4">
-                  Privacy Policy
-                </Link>
+            <Input label="Full Name" placeholder="Enter your full name" required name="name" value={f.name} onChange={set('name')} />
+            <Input label="Email" type="email" placeholder="Enter your email" required name="email" value={f.email} onChange={set('email')} />
+            <Input label="Phone (10-15 digits)" placeholder="08xxxxxxxxxx" required name="phone" value={f.phone} onChange={set('phone')} />
+            <Input label="Birthday" type="date" required name="birthday" value={f.birthday} onChange={set('birthday')} />
+            <Input label="City" placeholder="e.g. Jakarta" required name="city" value={f.city} onChange={set('city')} />
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium uppercase tracking-wider text-brand-dark">
+                Gender <span className="text-ui-error ml-1">*</span>
               </label>
+              <select
+                name="gender"
+                required
+                value={f.gender}
+                onChange={set('gender')}
+                className="w-full border border-brand-border px-4 py-3 text-sm bg-white focus:border-brand-black focus:outline-none"
+              >
+                <option value="">Select…</option>
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+              </select>
             </div>
+            <Input label="Password" type="password" required name="password" value={f.password} onChange={set('password')} />
+            <Input label="Confirm Password" type="password" required name="confirmPassword" value={f.confirmPassword} onChange={set('confirmPassword')} />
 
             {error && <span className="text-2xs text-ui-error">{error}</span>}
             <Button type="submit" fullWidth>
@@ -135,7 +100,10 @@ export default function RegisterPage() {
             </Button>
           </form>
 
-          {/* Login Link */}
+          <p className="text-center text-xs text-brand-gray mt-4">
+            Harap verifikasi email (cek inbox) sebelum melakukan order.
+          </p>
+
           <p className="text-center text-sm text-brand-gray mt-6">
             Already have an account?{' '}
             <Link href="/login" className="text-brand-black hover:underline underline-offset-4 font-medium">
@@ -144,22 +112,6 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {/* Affiliate Signup CTA */}
-        <div className="border border-brand-border mt-6 p-6 text-center">
-          <p className="text-sm font-medium uppercase tracking-wider mb-2">
-            Want to become an Affiliate?
-          </p>
-          <p className="text-xs text-brand-gray mb-4">
-            Join our affiliate program and earn commissions on every sale.
-          </p>
-          <Link href="/affiliate/register">
-            <Button variant="secondary" size="sm">
-              Apply Now
-            </Button>
-          </Link>
-        </div>
-
-        {/* Back to Home */}
         <Link href="/" className="block text-center text-sm text-brand-gray hover:text-brand-black underline underline-offset-4 mt-8">
           Back to Home
         </Link>

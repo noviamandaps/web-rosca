@@ -12,7 +12,17 @@ export function setUserToken(token: string) {
   setCookie('token', token);
 }
 
-export function userRegister(payload: { name: string; email: string; password: string; phone?: string }) {
+// shape nyata register (audit): confirmPassword/phone/birthday/city/gender wajib
+export function userRegister(payload: {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  phone: string;
+  birthday: string;
+  city: string;
+  gender: 'MALE' | 'FEMALE';
+}) {
   return apiFetch<unknown>('/auth/register', {
     method: 'POST',
     body: { ...payload, agreedToTerms: true, marketingConsent: false },
@@ -32,21 +42,53 @@ export function userResetPassword(payload: { resetToken: string; newPassword: st
 }
 
 export function getMe() {
-  return apiFetch<{ user?: Record<string, unknown> } | Record<string, unknown>>('/users/me');
+  return apiFetch<{ user?: UserProfile } & Partial<UserProfile>>('/users/me');
 }
 
-export function updateMe(payload: { name?: string; phone?: string; birthday?: string; gender?: string }) {
+// shape nyata GET /users/me (audit): user bungkus + claimedCoupons
+export interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  phone?: string | null;
+  birthday?: string | null;
+  gender?: 'MALE' | 'FEMALE' | null;
+  city?: string | null;
+  avatarUrl?: string | null;
+  role?: string;
+  isVerified?: boolean;
+  isActive?: boolean;
+  membershipLevel?: string;
+  totalSpending?: number | string;
+  points?: number | string;
+  marketingConsent?: boolean;
+  createdAt?: string;
+  totalOrders?: number;
+  totalReturns?: number;
+  claimedCoupons?: unknown[];
+}
+
+export function updateMe(payload: { name?: string; phone?: string; city?: string; birthday?: string; gender?: string }) {
   return apiFetch<unknown>('/users/me', { method: 'PUT', body: payload });
 }
 
-export function changePassword(payload: { currentPassword: string; newPassword: string }) {
-  return apiFetch<null>('/auth/change-password', { method: 'POST', body: payload });
+export function uploadAvatar(file: File) {
+  const fd = new FormData();
+  fd.append('avatar', file);
+  return apiFetch<unknown>('/users/me/avatar', { method: 'POST', formData: fd });
 }
 
 export function userLogout() {
+  // endpoint /auth/logout ada di BE; best-effort lalu clear lokal
+  apiFetch<null>('/auth/logout', { method: 'POST', body: {} }).catch(() => undefined);
   if (typeof window !== 'undefined') {
     localStorage.removeItem('token');
     document.cookie = 'token=; path=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     localStorage.removeItem('user_role');
   }
 }
+
+export function changePassword(payload: { currentPassword: string; newPassword: string }) {
+  return apiFetch<null>('/auth/change-password', { method: 'POST', body: payload });
+}
+

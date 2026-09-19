@@ -1,25 +1,42 @@
 import { apiFetch } from '../api-client';
-import type { BankRow, NotificationRow, PaymentResult } from '@/lib/api-types';
+import type {
+  BanksResult,
+  Membership,
+  NotificationsResult,
+  PaymentFeesResult,
+  PaymentResult,
+  UserCoupon,
+} from '@/lib/api-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+export type PaymentMethod = 'VIRTUAL_ACCOUNT' | 'EWALLET' | 'QR_CODE' | 'CREDIT_CARD' | string;
 
 export const qk = {
   banks: ['payments', 'banks'] as const,
-  notifications: ['notifications'] as const,
-  unread: ['notifications', 'unread-count'] as const,
+  membership: ['membership'] as const,
+  coupons: ['coupons'] as const,
 };
 
 export function useBanks() {
-  return useQuery({ queryKey: qk.banks, queryFn: () => apiFetch<BankRow[] | { data: BankRow[] }>('/payments/banks'), staleTime: Infinity });
+  return useQuery({ queryKey: qk.banks, queryFn: () => apiFetch<BanksResult>('/payments/banks'), enabled: !!token(), staleTime: Infinity });
+}
+
+function token() {
+  try {
+    return typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getPaymentFees(amount: number) {
+  return apiFetch<PaymentFeesResult>('/payments/fees', { params: { amount } });
 }
 
 export function useCreatePayment() {
   return useMutation({
-    mutationFn: (payload: {
-      orderId: string;
-      paymentMethod: 'VIRTUAL_ACCOUNT' | 'EWALLET' | string;
-      bankCode?: string;
-      channelCode?: string;
-    }) => apiFetch<Record<string, unknown>>('/payments/create', { method: 'POST', body: payload }),
+    mutationFn: (payload: { orderId: string; paymentMethod: PaymentMethod; bankCode?: string; channelCode?: string }) =>
+      apiFetch<PaymentResult>('/payments/create', { method: 'POST', body: payload }),
   });
 }
 
@@ -34,34 +51,32 @@ export function useSimulatePayment() {
   });
 }
 
-export function useNotifications() {
-  return useQuery({ queryKey: qk.notifications, queryFn: () => apiFetch<NotificationRow[] | { data: NotificationRow[] }>('/notifications'), enabled: !!token() });
+export function useMembership() {
+  return useQuery({ queryKey: qk.membership, queryFn: () => apiFetch<Membership>('/membership'), enabled: !!token() });
 }
 
-export function useUnreadCount() {
-  return useQuery({ queryKey: qk.unread, queryFn: () => apiFetch<{ count?: number }>('/notifications/unread-count'), enabled: !!token(), refetchInterval: 30_000 });
-}
-
-function token() {
-  try {
-    return typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  } catch {
-    return null;
-  }
-}
-
-export function useMarkNotificationRead() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => apiFetch<null>(`/notifications/${id}/read`, { method: 'PATCH', body: {} }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.notifications }),
+export function useCoupons() {
+  return useQuery({
+    queryKey: qk.coupons,
+    queryFn: async () => {
+      const res = await apiFetch<{ coupons: UserCoupon[]; pagination?: unknown }>('/coupons');
+      return res.coupons ?? [];
+    },
+    enabled: !!token(),
   });
 }
 
-export function useDeleteNotification() {
+export function useClaimCoupon() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiFetch<null>(`/notifications/${id}`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.notifications }),
+    mutationFn: (id: string) => apiFetch<null>(`/coupons/${id}/claim`, { method: 'POST', body: {} }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.coupons }),
+  });
+}
+
+export function useValidateCoupon() {
+  return useMutation({
+    mutationFn: (payload: { code: string; orderAmount: number; shippingCost?: number; addressId?: string }) =>
+      apiFetch<Record<string, unknown>>('/coupons/validate', { method: 'POST', body: payload }),
   });
 }

@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Button, Input } from '@/components/ui';
 import { getAddresses, getCart } from '@/services/user/cart';
 import { useCreateOrderFromCart } from '@/services/user/orders';
-import { useCreatePayment } from '@/services/user/payments';
+import { useCreatePayment, getPaymentFees, type PaymentMethod } from '@/services/user/payments';
+import { useCheckoutShipping } from '@/services/user/shipping';
 
 function token() {
   try {
@@ -17,6 +18,8 @@ function token() {
   }
 }
 
+const nf = new Intl.NumberFormat('id-ID');
+
 export default function CheckoutPage() {
   const router = useRouter();
   const hasToken = !!token();
@@ -25,37 +28,65 @@ export default function CheckoutPage() {
   const createOrder = useCreateOrderFromCart();
   const createPayment = useCreatePayment();
 
+  const items = cart?.items ?? [];
+  const subtotal = Number(cart?.subtotal ?? 0);
+  const addresses = addressesRes?.addresses ?? [];
+
   const [addressId, setAddressId] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'TRANSFER' | 'COD'>('TRANSFER');
+  const [courier, setCourier] = useState('');
   const [notes, setNotes] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('VIRTUAL_ACCOUNT');
   const [error, setError] = useState('');
   const [placing, setPlacing] = useState(false);
 
-  const items = cart?.items ?? cart?.cartItems ?? [];
-  const subtotal =
-    cart?.summary?.subtotal ?? items.reduce((a, i) => a + (i.subtotal ?? (i.unitPrice ?? 0) * i.quantity), 0);
-  const addresses = Array.isArray(addressesRes) ? addressesRes : (addressesRes?.data ?? []);
+  // ongkir dinamis: /shipping/checkout-shipping per address + cart items
+  const shippingParams = useMemo(
+    () => (addressId && items.length ? { addressId, cartItemIds: items.map((i) => i.id), itemValue: subtotal } : null),
+    [addressId, items, subtotal]
+  );
+  const { data: shipping } = useCheckoutShipping(shippingParams);
+  const services = (shipping?.results ?? []).flatMap((r) =>
+    r.services.map((s) => ({ ...s, courier: r.courier, courierName: r.courierName }))
+  );
+  const selected = services.find((s) => `${s.courier}|${s.code}` === courier);
+  const shippingCost = selected?.cost ?? 0;
+  const total = subtotal + shippingCost;
+
+  const { data: fees } = useQuery({
+    queryKey: ['payments', 'fees', total],
+    queryFn: () => getPaymentFees(total),
+    enabled: hasToken && total > 0,
+  });
 
   async function place(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (!addressId) {
-      setError('Select an address');
-      return;
-    }
+    if (!addressId) return setError('Select an address');
+    if (!selected) return setError('Select a shipping option');
     setPlacing(true);
     try {
       const order = await createOrder.mutateAsync({
         addressId,
         cartItemIds: items.map((i) => i.id),
+        courierCode: selected.courier,
+        courierService: selected.code,
+        shippingCost: shippingCost,
         notes: notes || undefined,
-        paymentMethod,
+        paymentMethod: paymentMethod === 'COD' ? 'COD' : 'TRANSFER',
       });
       const orderId = (order as { id?: string }).id;
-      if (paymentMethod === 'TRANSFER' && orderId) {
-        await createPayment.mutateAsync({ orderId, paymentMethod: 'VIRTUAL_ACCOUNT' });
+      let query = `orderId=${orderId}`;
+      if (paymentMethod !== 'COD' && orderId) {
+        const pay = await createPayment.mutateAsync({
+          orderId,
+          paymentMethod: paymentMethod,
+          bankCode: paymentMethod === 'VIRTUAL_ACCOUNT' ? 'BCA' : undefined,
+          channelCode: paymentMethod === 'EWALLET' ? 'GOPAY' : undefined,
+        });
+        const pid = pay.id ?? pay.paymentId ?? '';
+        query = `paymentId=${pid}&orderId=${orderId}&amount=${Number(pay.amount ?? total)}`;
       }
-      router.push('/orders');
+      router.push(`/waiting-for-payment?${query}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Checkout failed');
     } finally {
@@ -90,20 +121,21 @@ export default function CheckoutPage() {
                   <input
                     type="radio"
                     name="address"
-                    value={a.id}
                     checked={addressId === a.id}
-                    onChange={() => a.id && setAddressId(a.id)}
+                    onChange={() => setAddressId(a.id!)}
                     className="mt-1"
                   />
                   <span>
                     <span className="font-medium">{a.recipientName}</span>
-                    <span className="block text-xs text-brand-gray">{a.fullAddress}</span>
+                    <span className="block text-xs text-brand-gray">
+                      {a.fullAddress}, {a.district}, {a.city}, {a.province} {a.postalCode}
+                    </span>
                   </span>
                 </label>
               ))}
               {addresses.length === 0 && (
                 <p className="text-xs text-brand-gray">
-                  No saved address yet — add one in your profile.
+                  Belum ada alamat — <Link href="/profile/addresses" className="underline">tambah alamat</Link> dulu.
                 </p>
               )}
             </div>
@@ -111,28 +143,47 @@ export default function CheckoutPage() {
 
           <section className="border border-brand-border p-6">
             <h2 className="text-xl font-bold uppercase tracking-wider mb-6 pb-4 border-b border-brand-border">
+              Shipping Method
+            </h2>
+            {shippingParams ? (
+              <CourierOptions list={services} courier={courier} onChange={setCourier} />
+            ) : (
+              <p className="text-xs text-brand-gray">Pilih alamat untuk melihat ongkir.</p>
+            )}
+          </section>
+
+          <section className="border border-brand-border p-6">
+            <h2 className="text-xl font-bold uppercase tracking-wider mb-6 pb-4 border-b border-brand-border">
               Payment Method
             </h2>
             <div className="space-y-3">
-              <label className="flex items-center gap-3 p-4 border border-brand-border cursor-pointer hover:border-brand-black transition-colors text-sm">
-                <input
-                  type="radio"
-                  name="payment"
-                  checked={paymentMethod === 'TRANSFER'}
-                  onChange={() => setPaymentMethod('TRANSFER')}
-                />
-                <span>Virtual Account (Transfer)</span>
-              </label>
-              <label className="flex items-center gap-3 p-4 border border-brand-border cursor-pointer hover:border-brand-black transition-colors text-sm">
-                <input
-                  type="radio"
-                  name="payment"
-                  checked={paymentMethod === 'COD'}
-                  onChange={() => setPaymentMethod('COD')}
-                />
-                <span>COD</span>
-              </label>
+              {[
+                { v: 'VIRTUAL_ACCOUNT', l: 'Virtual Account (VA)' },
+                { v: 'QRIS', l: 'QRIS' },
+                { v: 'EWALLET', l: 'E-Wallet (GoPay)' },
+                { v: 'COD', l: 'COD' },
+              ].map((m) => (
+                <label key={m.v} className="flex items-center justify-between gap-3 p-4 border border-brand-border cursor-pointer hover:border-brand-black transition-colors text-sm">
+                  <span className="flex items-center gap-3">
+                    <input
+                      type="radio"
+                      name="payment"
+                      checked={paymentMethod === m.v}
+                      onChange={() => setPaymentMethod(m.v)}
+                    />
+                    {m.l}
+                  </span>
+                  {fees && (
+                    <span className="text-xs text-brand-gray">
+                      + Rp {nf.format(Number(fees.options.find((o) => o.paymentMethod === m.v)?.fee ?? 0))}
+                    </span>
+                  )}
+                </label>
+              ))}
             </div>
+            <p className="text-2xs text-brand-gray mt-3">
+              Fee per metode via `GET /payments/fees` — VA/QRIS/EWallet/COD tersedia sesuai staging.
+            </p>
           </section>
 
           <section className="border border-brand-border p-6">
@@ -150,16 +201,24 @@ export default function CheckoutPage() {
               {items.map((i) => (
                 <div key={i.id} className="flex justify-between text-sm">
                   <span className="text-brand-gray">
-                    {i.productName ?? '-'} × {i.quantity}
+                    {i.product?.name ?? '-'} × {i.quantity}
                   </span>
-                  <span>Rp {(i.subtotal ?? (i.unitPrice ?? 0) * i.quantity).toLocaleString('id-ID')}</span>
+                  <span>Rp {Number(i.lineTotal ?? i.unitPrice ?? 0).toLocaleString('id-ID')}</span>
                 </div>
               ))}
             </div>
             <div className="space-y-2 pt-4 border-t border-brand-border">
-              <div className="flex justify-between font-bold text-lg">
-                <span>Total</span>
+              <div className="flex justify-between text-sm">
+                <span>Subtotal</span>
                 <span>Rp {subtotal.toLocaleString('id-ID')}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Shipping</span>
+                <span>{selected ? `Rp ${shippingCost.toLocaleString('id-ID')}` : '—'}</span>
+              </div>
+              <div className="flex justify-between font-bold text-lg pt-2 border-t border-brand-border mt-2">
+                <span>Total</span>
+                <span>Rp {total.toLocaleString('id-ID')}</span>
               </div>
             </div>
             {error && <p className="text-2xs text-ui-error mt-3">{error}</p>}
@@ -175,6 +234,43 @@ export default function CheckoutPage() {
           </div>
         </div>
       </form>
+    </div>
+  );
+}
+
+function CourierOptions({
+  list,
+  courier,
+  onChange,
+}: {
+  list: { courier: string; courierName: string; code: string; name: string; service: string; description?: string; cost: number; etd?: string }[];
+  courier: string;
+  onChange: (v: string) => void;
+}) {
+  if (!list.length) return <p className="text-xs text-brand-gray">Tidak ada opsi pengiriman.</p>;
+  return (
+    <div className="space-y-3">
+      {list.map((s) => (
+        <label
+          key={`${s.courier}-${s.code}`}
+          className="flex items-center justify-between gap-3 p-4 border border-brand-border cursor-pointer hover:border-brand-black transition-colors text-sm"
+        >
+          <span className="flex items-center gap-3">
+            <input
+              type="radio"
+              name="courier"
+              value={`${s.courier}|${s.code}`}
+              checked={courier === `${s.courier}|${s.code}`}
+              onChange={() => onChange(`${s.courier}|${s.code}`)}
+            />
+            <span>
+              <span className="font-medium">{s.courierName} {s.service}</span>
+              <span className="block text-xs text-brand-gray">{s.description ?? s.etd}</span>
+            </span>
+          </span>
+          <span className="text-sm font-medium">Rp {s.cost.toLocaleString('id-ID')}</span>
+        </label>
+      ))}
     </div>
   );
 }

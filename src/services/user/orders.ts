@@ -1,5 +1,5 @@
 import { apiFetch, apiDownload, downloadBlob } from '../api-client';
-import type { OrdersListResult, OrderStatus, Order } from '@/lib/api-types';
+import type { OrdersListResult, OrderStatus, Order, UserOrdersSummary } from '@/lib/api-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export type UserOrderFilters = {
@@ -26,6 +26,10 @@ export function useOrders(f: UserOrderFilters = {}) {
   return useQuery({ queryKey: qk.orders(f), queryFn: () => getOrders(f), enabled: !!localStorageToken() });
 }
 
+export function useOrdersSummary() {
+  return useQuery({ queryKey: ['orders-user', 'summary'], queryFn: () => apiFetch<UserOrdersSummary>('/orders/summary'), enabled: !!localStorageToken() });
+}
+
 function localStorageToken() {
   try {
     return typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -48,10 +52,10 @@ export function useCreateOrderFromCart() {
     mutationFn: (payload: {
       addressId: string;
       cartItemIds: string[];
-      notes?: string;
-      courierCode?: string;
-      courierService?: string;
+      courierCode: string;
+      courierService: string;
       shippingCost?: number;
+      notes?: string;
       couponCode?: string[];
       pointsUsed?: number;
       paymentMethod: 'COD' | 'TRANSFER';

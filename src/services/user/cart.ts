@@ -1,5 +1,5 @@
 import { apiFetch } from '../api-client';
-import type { Address, CartResult } from '@/lib/api-types';
+import type { Address, AddressListResult, CartResult, PublicProduct } from '@/lib/api-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const qk = {
@@ -13,14 +13,14 @@ export function getCart() {
 }
 
 export function getAddresses() {
-  return apiFetch<{ data?: Address[] } | Address[]>('/addresses');
+  return apiFetch<AddressListResult>('/addresses');
 }
 
 export function useCart() {
-  return useQuery({ queryKey: qk.cart, queryFn: getCart, enabled: !!localStorageSafe() });
+  return useQuery({ queryKey: qk.cart, queryFn: getCart, enabled: !!token() });
 }
-// ponytail: /cart hanya query kalau sudah login (token ada) — hindari 401 di storefront
-function localStorageSafe() {
+
+function token() {
   try {
     return typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   } catch {
@@ -64,11 +64,7 @@ export function useClearCart() {
 }
 
 export function useWishlist() {
-  return useQuery({
-    queryKey: qk.wishlist,
-    queryFn: () => apiFetch<{ data?: unknown[] } | unknown[]>('/wishlist'),
-    enabled: !!localStorageSafe(),
-  });
+  return useQuery({ queryKey: qk.wishlist, queryFn: () => apiFetch<Record<string, unknown>>('/wishlist'), enabled: !!token() });
 }
 
 export function useToggleWishlist() {
@@ -83,12 +79,12 @@ export function useToggleWishlist() {
   });
 }
 
+export function checkWishlist(productId: string) {
+  return apiFetch<{ exists?: boolean }>(`/wishlist/check/${productId}`);
+}
+
 export function useAddresses() {
-  return useQuery({
-    queryKey: qk.addresses,
-    queryFn: () => apiFetch<{ data?: Address[] } | Address[]>('/addresses'),
-    enabled: !!localStorageSafe(),
-  });
+  return useQuery({ queryKey: qk.addresses, queryFn: getAddresses, enabled: !!token() });
 }
 
 export function useSaveAddress() {
@@ -119,3 +115,6 @@ export function useDeleteAddress() {
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.addresses }),
   });
 }
+
+// ponytail: GET /addresses dipanggil via raw fetch di page — jangan pakai hook di luar komponen
+export type { PublicProduct };

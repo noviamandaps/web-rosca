@@ -452,48 +452,60 @@ export interface PublicProduct {
   sold?: number;
 }
 
+// shape nyata GET /cart (audit staging): nested product/variant, lineTotal
 export interface CartItemRow {
   id: string;
   productId?: string;
   variantId?: string;
-  productName?: string;
-  variantLabel?: string;
-  unitPrice?: number;
-  price?: number;
   quantity: number;
-  subtotal?: number;
-  image?: string | null;
-  imageUrl?: string | null;
-  slug?: string;
   isEngrave?: boolean;
   engraveText?: string | null;
+  unitPrice?: number | string;
+  lineTotal?: number | string;
+  slug?: string;
+  product?: { id: string; name: string; slug?: string; basePrice?: number | string; weightGram?: number | string; images?: ProductImageRow[] };
+  variant?: { id: string; sku?: string; colorName?: string | null; sizeLabel?: string | null; volumeMl?: string | null; imageUrl?: string | null; stockQuantity?: number };
+  image?: string | null;
+  imageUrl?: string | null;
+  productName?: string;
+  variantLabel?: string;
+  price?: number;
+  subtotal?: number;
+  isLowStock?: boolean;
 }
 
 export type CartResult = {
-  items?: CartItemRow[];
-  cartItems?: CartItemRow[];
+  items: CartItemRow[];
+  subtotal: number | string;
+  totalItems: number;
   summary?: { subtotal?: number; itemCount?: number };
 };
 
+// shape nyata audit staging: semua ID string, lat/lng number, subdistrict required
 export interface Address {
   id?: string;
   label?: string;
   recipientName: string;
   phone: string;
   province: string;
-  provinceId?: string;
+  provinceId: string;
   city: string;
-  cityId?: string;
-  district?: string;
-  districtId?: string;
+  cityId: string;
+  district: string;
+  districtId: string;
   subdistrict?: string;
   subdistrictId?: string;
   postalCode: string;
   fullAddress: string;
-  latitude?: string | number | null;
-  longitude?: string | number | null;
-  komerceDestinationId?: string;
+  latitude: number;
+  longitude: number;
+  komerceDestinationId: string;
   isDefault?: boolean;
+}
+
+export interface AddressListResult {
+  addresses: Address[];
+  pagination?: Pagination;
 }
 
 export interface ReviewRow {
@@ -520,8 +532,103 @@ export interface NotificationRow {
   message: string;
   isRead?: boolean;
   read?: boolean;
+  icon?: string;
+  link?: string;
   createdAt?: string;
 }
+
+// shape nyata GET /notifications (audit): { success, data: { notifications, total, unreadCount } }
+export type NotificationsResult = {
+  notifications: NotificationRow[];
+  total?: number;
+  unreadCount?: number;
+};
+
+export interface PaymentMethodFee {
+  paymentMethod: 'VIRTUAL_ACCOUNT' | 'EWALLET' | 'QR_CODE' | 'COD' | string;
+  channelCode?: string;
+  fee: number | string;
+  total: number | string;
+}
+
+export interface PaymentFeesResult {
+  baseAmount: number | string;
+  options: PaymentMethodFee[];
+}
+
+export type BankRow = {
+  code: string;
+  name: string;
+};
+
+export type BanksResult = { banks: BankRow[] };
+
+// shape nyata GET /membership (audit)
+export interface Membership {
+  level: string;
+  name: string;
+  description?: string;
+  totalSpending?: number | string;
+  benefitPercent?: number;
+  points?: number | string;
+  nextTier?: { level: string; name: string; spendingNeeded: number | string } | null;
+  pointsExpireAt?: string | null;
+  daysUntilExpiry?: number | null;
+}
+
+// shape nyata GET /coupons (audit): Decimal string + flag eligibilitas
+export interface UserCoupon {
+  id: string;
+  code: string;
+  name?: string;
+  description?: string;
+  termsAndConditions?: string;
+  imageUrl?: string | null;
+  discountType?: string;
+  discountValue?: number | string;
+  minOrderAmount?: number | string;
+  maxDiscountAmount?: number | string | null;
+  usageLimit?: number;
+  usageCount?: number;
+  perUserLimit?: number;
+  startDate?: string;
+  endDate?: string;
+  remainingUsage?: number | null;
+  status?: string;
+  isCurrentlyActive?: boolean;
+  hasClaimed?: boolean;
+  isEligible?: boolean;
+  ineligibilityReasons?: string[];
+}
+
+export interface CourierRow {
+  code: string;
+  name: string;
+  services: string[];
+}
+
+export interface CheckoutShippingResult {
+  origin?: { name?: string; destinationId?: string; warehouseId?: string };
+  destination?: { destinationId?: string; name?: string };
+  weight?: number;
+  results: {
+    courier: string;
+    courierName: string;
+    services: {
+      name: string;
+      code: string;
+      service: string;
+      description?: string;
+      cost: number;
+      etd?: string;
+      isCod?: boolean;
+    }[];
+  }[];
+}
+
+export interface ProvinceRow { id: number | string; name: string }
+export interface CityRow { id: number | string; name: string }
+export interface DistrictRow { id: number | string; name?: string }
 
 export interface PaymentResult {
   id?: string;
@@ -536,11 +643,9 @@ export interface PaymentResult {
   providerPaymentId?: string | null;
 }
 
-export interface BankRow {
-  id: string;
-  name: string;
-  code?: string;
-  imageUrl?: string;
+export interface UserOrdersSummary {
+  totalOrders?: number;
+  totalPurchase?: number | string;
 }
 
 export interface CmsSlider {

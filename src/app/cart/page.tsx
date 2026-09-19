@@ -26,9 +26,9 @@ export default function CartPage() {
   const update = useUpdateCartItem();
   const remove = useRemoveCartItem();
 
-  const items = cart?.items ?? cart?.cartItems ?? [];
+  const items = cart?.items ?? [];
   const subtotal =
-    cart?.summary?.subtotal ?? items.reduce((a, i) => a + (i.subtotal ?? (i.unitPrice ?? i.price ?? 0) * i.quantity), 0);
+    typeof cart?.subtotal === 'string' ? Number(cart.subtotal) : (cart?.subtotal ?? 0);
 
   if (!localStorageToken())
     return (
@@ -66,12 +66,12 @@ export default function CartPage() {
                     key={item.id}
                     className={`flex gap-4 p-4 md:p-6 ${index < items.length - 1 ? 'border-b border-brand-border' : ''}`}
                   >
-                    <Link href={`/catalog/${item.slug ?? ''}`} className="shrink-0">
+                    <Link href={`/catalog/${item.product?.slug ?? ''}`} className="shrink-0">
                       <div className="relative w-24 h-24 md:w-32 md:h-32 bg-brand-light border border-brand-border">
-                        {(item.image ?? item.imageUrl) && (
+                        {(item.product?.images?.[0]?.imageUrl ?? item.variant?.imageUrl) && (
                           <Image
-                            src={(item.image ?? item.imageUrl) as string}
-                            alt={item.productName ?? ''}
+                            src={(item.product?.images?.[0]?.imageUrl ?? item.variant?.imageUrl) as string}
+                            alt={item.product?.name ?? ''}
                             fill
                             className="object-cover"
                           />
@@ -79,13 +79,15 @@ export default function CartPage() {
                       </div>
                     </Link>
                     <div className="flex-1 min-w-0">
-                      <Link href={`/catalog/${item.slug ?? ''}`}>
+                      <Link href={`/catalog/${item.product?.slug ?? ''}`}>
                         <h3 className="text-sm font-medium tracking-wider uppercase hover:underline">
-                          {item.productName ?? '-'}
+                          {item.product?.name ?? '-'}
                         </h3>
                       </Link>
-                      <p className="text-xs text-brand-gray mt-1">{item.variantLabel ?? ''}</p>
-                      <p className="text-sm font-medium mt-2">{formatPrice(item.unitPrice ?? item.price ?? 0)}</p>
+                      <p className="text-xs text-brand-gray mt-1">
+                        {[item.variant?.sku, item.variant?.colorName, item.variant?.sizeLabel].filter(Boolean).join(' · ')}
+                      </p>
+                      <p className="text-sm font-medium mt-2">{formatPrice(Number(item.unitPrice ?? 0))}</p>
 
                       <div className="flex items-center justify-between mt-4">
                         <div className="flex items-center border border-brand-border">
@@ -114,9 +116,7 @@ export default function CartPage() {
                       </div>
                     </div>
                     <div className="hidden md:flex flex-col items-end justify-between">
-                      <span className="text-sm font-medium">
-                        {formatPrice(item.subtotal ?? (item.unitPrice ?? 0) * item.quantity)}
-                      </span>
+                      <span className="text-sm font-medium">{formatPrice(Number(item.lineTotal ?? item.unitPrice ?? 0) * item.quantity)}</span>
                     </div>
                   </div>
                 ))}
